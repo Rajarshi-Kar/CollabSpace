@@ -14,24 +14,24 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 0 — Foundation
 
-- [ ] Monorepo scaffold, lint/format/tsconfig, Docker Compose (Postgres, Redis, Meilisearch, MinIO)
-- [ ] CI (typecheck, lint, test), env config, shared types package
-- [ ] Base schema design + Prisma setup, migration workflow
+- [x] Monorepo scaffold, lint/format/tsconfig, Docker Compose (Postgres, Redis, Meilisearch, MinIO)
+- [ ] CI (typecheck, lint, test) — not yet wired to GitHub Actions
+- [x] Base schema design + Prisma setup, migration workflow
 
 ## Phase 1 — Auth & Multi-Tenancy
 
-- [ ] Auth: signup/login (JWT access + refresh, httpOnly cookies), password reset
-- [ ] Organizations, teams, members, invitations (email tokens)
-- [ ] Roles (owner/admin/member/guest) + permission groups; middleware for RBAC checks
-- [ ] Workspaces within orgs; permission inheritance model (org → workspace → resource, with overrides)
-- [ ] Audit log table + event capture middleware
+- [x] Auth: signup/login (JWT access + refresh) — password reset still open
+- [x] Organizations, teams, members, invitations (email tokens)
+- [x] Roles (owner/admin/member/guest); middleware for RBAC checks — permission groups beyond org roles not yet added
+- [x] Workspaces within orgs; permission inheritance model (org → workspace → resource, with overrides)
+- [x] Audit log table + event capture (emitDomainEvent)
 
 ## Phase 2 — Real-Time Core
 
-- [ ] WebSocket gateway (auth handshake, room model per workspace/doc/channel)
-- [ ] Redis pub/sub adapter so multiple API instances share socket state
-- [ ] Presence (who's online, per-room), reconnection/backoff handling
-- [ ] Event-bus abstraction: domain events → sockets + async workers
+- [x] WebSocket gateway (auth handshake, room model per workspace/doc/channel)
+- [x] Redis pub/sub adapter so multiple API instances share socket state
+- [x] Presence (who's online, per-room), reconnection/backoff handling
+- [x] Event-bus abstraction: domain events → sockets + async workers
 
 ## Phase 3 — Collaborative Documents
 
