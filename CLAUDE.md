@@ -59,9 +59,9 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 6 — Files
 
-- [ ] Folder hierarchy, drag-and-drop uploads (presigned URLs, multipart for large files)
-- [ ] File versioning, preview (images/PDF), download history
-- [ ] Storage quotas per org; async media processing (thumbnails)
+- [x] Folder hierarchy (self-relation); uploads via presigned S3/MinIO PUT URLs (client uploads directly, server never proxies bytes) — multipart for very large files not yet added
+- [x] File versioning (File = stable identity, FileVersion = actual bytes + storage key); download history (`FileDownload` row per download); preview generation deferred to the media worker job (stub only — no real thumbnailing yet)
+- [x] Storage quotas per workspace, enforced twice: optimistically on upload-url request (client-declared size) and authoritatively on /complete via S3 HeadObject (real size) — rejects and cleans up if the real upload would exceed quota; async media-processing queue wired (worker job is still a stub, no real thumbnail generation)
 
 ## Phase 7 — Search
 

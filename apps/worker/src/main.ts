@@ -2,17 +2,19 @@ import 'dotenv/config';
 import { Worker, type ConnectionOptions } from 'bullmq';
 import { processEmailJob } from './jobs/email.job.js';
 import { processIndexJob } from './jobs/index.job.js';
+import { processMediaJob } from './jobs/media.job.js';
 
 const connection: ConnectionOptions = { url: process.env.REDIS_URL ?? 'redis://localhost:6379' } as never;
 const concurrency = Number(process.env.WORKER_CONCURRENCY ?? 5);
 
 const emailWorker = new Worker('email', processEmailJob, { connection, concurrency });
 const indexWorker = new Worker('index', processIndexJob, { connection, concurrency });
+const mediaWorker = new Worker('media', processMediaJob, { connection, concurrency });
 
-for (const worker of [emailWorker, indexWorker]) {
+for (const worker of [emailWorker, indexWorker, mediaWorker]) {
   worker.on('failed', (job, err) => {
     console.error(`[${worker.name}] job ${job?.id} failed:`, err.message);
   });
 }
 
-console.log('worker started: queues = [email, index]');
+console.log('worker started: queues = [email, index, media]');

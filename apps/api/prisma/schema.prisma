@@ -32,6 +32,10 @@ model User {
   channelMemberships ChannelMember[]
   messages         Message[]
   messageReactions MessageReaction[]
+  foldersCreated   Folder[]
+  filesCreated     File[]
+  fileVersionsUploaded FileVersion[]
+  fileDownloads    FileDownload[]
 }
 
 model RefreshToken {
@@ -136,10 +140,17 @@ model Workspace {
   slug           String
   createdAt      DateTime     @default(now())
 
+  // Default 5 GiB per workspace; enforced on upload in files.routes.ts by
+  // summing current-version FileVersion.sizeBytes rather than maintaining a
+  // separately-updated counter that could drift.
+  storageQuotaBytes BigInt @default(5368709120)
+
   permissionOverrides PermissionOverride[]
   documents           Document[]
   projects            Project[]
   channels            Channel[]
+  folders             Folder[]
+  files               File[]
 
   @@unique([organizationId, slug])
 }
@@ -441,7 +452,8 @@ model Message {
   deletedAt  DateTime?
   createdAt  DateTime  @default(now())
 
-  reactions MessageReaction[]
+  reactions   MessageReaction[]
+  attachments MessageAttachment[]
 
   @@index([channelId, createdAt])
   @@index([parentId])
@@ -457,6 +469,87 @@ model MessageReaction {
   createdAt DateTime @default(now())
 
   @@unique([messageId, userId, emoji])
+}
+
+// ---------- Files ----------
+
+model Folder {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Folder?   @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]  @relation("FolderTree")
+  name        String
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  files File[]
+
+  @@index([workspaceId, parentId])
+}
+
+// A File row is the stable identity (name, folder, current version); actual
+// bytes live in FileVersion rows pointing at S3/MinIO object keys, so
+// re-uploading a file doesn't lose prior versions.
+model File {
+  id               String       @id @default(uuid())
+  workspaceId      String
+  workspace        Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  folderId         String?
+  folder           Folder?      @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  name             String
+  mimeType         String
+  currentVersionId String?      @unique
+  currentVersion   FileVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+  createdById      String
+  createdBy        User         @relation(fields: [createdById], references: [id])
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  versions  FileVersion[] @relation("FileVersions")
+  downloads FileDownload[]
+  messageAttachments MessageAttachment[]
+
+  @@index([workspaceId, folderId])
+}
+
+model FileVersion {
+  id            String   @id @default(uuid())
+  fileId        String
+  file          File     @relation("FileVersions", fields: [fileId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  storageKey    String   @unique
+  sizeBytes     BigInt
+  uploadedById  String
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+  createdAt     DateTime @default(now())
+
+  currentFor File? @relation("CurrentVersion")
+
+  @@unique([fileId, versionNumber])
+}
+
+model FileDownload {
+  id           String   @id @default(uuid())
+  fileId       String
+  file         File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  downloadedById String
+  downloadedBy User     @relation(fields: [downloadedById], references: [id])
+  downloadedAt DateTime @default(now())
+
+  @@index([fileId, downloadedAt])
+}
+
+model MessageAttachment {
+  id        String  @id @default(uuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, fileId])
 }
 
 // ---------- Audit ----------
