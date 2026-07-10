@@ -2,10 +2,12 @@
 
 Unified team collaboration platform (docs + tasks + chat + files + search) demonstrating real-time distributed systems engineering. See `problem_statement.md` for full requirements.
 
+"D:\Desktop\Riju\KIIT\Projects\Project List.md" After completion, update this file to add the details of this project in the same format as the other projects, ok? and update the analysis
+
 ## Tech Stack (proposed)
 
 - **Frontend:** React + TypeScript, Vite, TailwindCSS, Zustand/TanStack Query, TipTap (rich text) + Yjs (CRDT)
-- **Backend:** Node.js + TypeScript (NestJS or Express), REST + WebSockets (Socket.IO / y-websocket)
+- **Backend:** Node.js + TypeScript (NestJS or Express), REST + WebSockets (Socket.IO / y-websocket) (Make a minimalistic UI with muted or off colors, don't make it look like typical AI slop websites with a bunch of purple and shit)
 - **Data:** PostgreSQL (Prisma), Redis (pub/sub, presence, cache, rate limits), Meilisearch/Elasticsearch (search), S3-compatible storage (MinIO locally) for files
 - **Async:** BullMQ workers (indexing, emails, notifications, exports, media processing)
 - **Infra:** Docker Compose for dev; monorepo (pnpm workspaces: `apps/web`, `apps/api`, `apps/worker`, `packages/shared`)
