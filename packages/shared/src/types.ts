@@ -29,6 +29,7 @@ export type DomainEventType =
   | 'invitation.created'
   | 'invitation.accepted'
   | 'document.updated'
+  | 'project.created'
   | 'task.created'
   | 'task.updated'
   | 'message.sent'

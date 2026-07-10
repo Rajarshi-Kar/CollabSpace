@@ -45,10 +45,10 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 4 — Project Management
 
-- [ ] Projects, tasks (status, priority, labels, assignees, deadlines, dependencies)
-- [ ] Kanban board (drag-and-drop, optimistic updates, real-time sync of moves) + list view
-- [ ] Milestones, sprints (planning view, sprint scoping)
-- [ ] Task activity history; task ↔ document linking
+- [x] Projects, tasks (status, priority, labels, assignees, deadlines, dependencies)
+- [x] Kanban board backend: fractional-rank reorder endpoint (`/tasks/:id/move`) for drag-and-drop without rewriting whole columns — web board UI not built yet
+- [x] Milestones, sprints (create + status transitions); no dedicated planning-view UI yet
+- [ ] Task activity history (audit log captures task.created/task.updated but no per-task timeline view); task ↔ document linking is in the schema (`Task.documentId`) and wired
 
 ## Phase 5 — Messaging
 

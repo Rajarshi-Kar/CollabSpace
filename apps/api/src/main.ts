@@ -10,6 +10,8 @@ import { teamsRouter } from './modules/teams/teams.routes.js';
 import { documentsRouter } from './modules/documents/documents.routes.js';
 import { versionsRouter } from './modules/documents/versions.routes.js';
 import { commentsRouter } from './modules/documents/comments.routes.js';
+import { projectsRouter } from './modules/projects/projects.routes.js';
+import { tasksRouter } from './modules/tasks/tasks.routes.js';
 import { createSocketServer } from './realtime/socket.js';
 import { attachYjsServer } from './realtime/yjsServer.js';
 
@@ -27,6 +29,8 @@ app.use('/orgs/:orgId/teams', teamsRouter);
 app.use('/workspaces/:workspaceId/documents', documentsRouter);
 app.use('/workspaces/:workspaceId/documents/:documentId/versions', versionsRouter);
 app.use('/workspaces/:workspaceId/documents/:documentId/comments', commentsRouter);
+app.use('/workspaces/:workspaceId/projects', projectsRouter);
+app.use('/workspaces/:workspaceId/projects/:projectId/tasks', tasksRouter);
 
 const httpServer = createServer(app);
 createSocketServer(httpServer);
