@@ -35,12 +35,13 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 3 — Collaborative Documents
 
-- [ ] TipTap editor + Yjs CRDT sync via y-websocket provider; awareness (cursors, selections)
-- [ ] Persistence: Yjs updates snapshotted to Postgres; debounced snapshots + update log
-- [ ] Version history (periodic snapshots, restore, diff view)
-- [ ] Nested pages tree, document sharing/permissions, templates
-- [ ] Comments (anchored to ranges), @mentions → notification events
-- [ ] Offline editing: IndexedDB persistence (y-indexeddb), merge on reconnect
+- [x] TipTap editor + Yjs CRDT sync via a hand-rolled ws server (y-protocols sync/awareness) + y-websocket client provider; awareness (cursors, selections)
+- [x] Persistence: Yjs updates snapshotted to Postgres; debounced snapshots + update log (`document-persistence.ts`)
+- [x] Version history (manual + auto snapshots, restore-as-diff, text preview)
+- [x] Nested pages tree (self-relation), document sharing via PermissionOverride, templates flag
+- [x] Comments (anchored via JSON anchor field, threaded, resolve) — @mentions parsing not yet wired to notifications (Phase 8)
+- [x] Offline editing: IndexedDB persistence (y-indexeddb), merges automatically on reconnect via the CRDT
+- [ ] Web app shell (routing, auth pages, workspace nav) still not built — CollaborativeEditor.tsx exists but isn't mounted into a real page yet
 
 ## Phase 4 — Project Management
 

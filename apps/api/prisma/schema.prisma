@@ -22,6 +22,9 @@ model User {
   invitationsSent Invitation[]     @relation("InvitedBy")
   auditLogs      AuditLog[]
   refreshTokens  RefreshToken[]
+  documentsCreated Document[]
+  documentVersions DocumentVersion[]
+  comments       Comment[]
 }
 
 model RefreshToken {
@@ -127,6 +130,7 @@ model Workspace {
   createdAt      DateTime     @default(now())
 
   permissionOverrides PermissionOverride[]
+  documents           Document[]
 
   @@unique([organizationId, slug])
 }
@@ -159,6 +163,84 @@ model PermissionOverride {
   createdAt    DateTime        @default(now())
 
   @@unique([resourceType, resourceId, subjectType, subjectId])
+}
+
+// ---------- Documents ----------
+
+model Document {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Document? @relation("DocumentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Document[] @relation("DocumentTree")
+  title       String
+  icon        String?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  isTemplate  Boolean   @default(false)
+  archivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Latest merged Yjs document state, as a binary CRDT snapshot. Updated by
+  // the sync server on a debounce; DocumentUpdate rows below hold the
+  // incremental log used to reconstruct/version between snapshots.
+  snapshot    Bytes?
+  snapshotAt  DateTime?
+
+  updates  DocumentUpdate[]
+  versions DocumentVersion[]
+  comments Comment[]
+
+  @@index([workspaceId, parentId])
+}
+
+// Incremental Yjs update log, appended on every sync-server flush. Replayed
+// on top of the last snapshot to reconstruct current state; compacted into a
+// new snapshot periodically so this table doesn't grow unbounded.
+model DocumentUpdate {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  update     Bytes
+  createdAt  DateTime @default(now())
+
+  @@index([documentId, createdAt])
+}
+
+// Named/periodic point-in-time snapshots for version history (restore/diff),
+// distinct from the live `Document.snapshot` used for fast reconnect.
+model DocumentVersion {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  snapshot   Bytes
+  createdById String?
+  createdBy  User?    @relation(fields: [createdById], references: [id])
+  label      String?
+  createdAt  DateTime @default(now())
+
+  @@index([documentId, createdAt])
+}
+
+model Comment {
+  id         String    @id @default(uuid())
+  documentId String
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id])
+  body       String
+  // Anchor into the document (e.g. Yjs relative position, serialized) so the
+  // comment stays attached to its range as the document is edited.
+  anchor     Json
+  resolvedAt DateTime?
+  parentId   String?
+  parent     Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Comment[] @relation("CommentThread")
+  createdAt  DateTime  @default(now())
+
+  @@index([documentId, createdAt])
 }
 
 // ---------- Audit ----------
