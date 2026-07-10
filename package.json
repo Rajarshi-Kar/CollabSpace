@@ -1,0 +1,24 @@
+{
+  "name": "collabspace",
+  "private": true,
+  "version": "0.0.1",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev:api": "pnpm --filter @collabspace/api dev",
+    "dev:worker": "pnpm --filter @collabspace/worker dev",
+    "dev:web": "pnpm --filter @collabspace/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@typescript-eslint/eslint-plugin": "^8.15.0",
+    "@typescript-eslint/parser": "^8.15.0",
+    "eslint": "^8.57.1",
+    "prettier": "^3.3.3"
+  }
+}

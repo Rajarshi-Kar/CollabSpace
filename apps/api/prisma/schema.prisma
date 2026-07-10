@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity ----------
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships    OrgMember[]
+  invitationsSent Invitation[]     @relation("InvitedBy")
+  auditLogs      AuditLog[]
+  refreshTokens  RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+}
+
+// ---------- Organizations & Teams ----------
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     OrgMember[]
+  teams       Team[]
+  workspaces  Workspace[]
+  invitations Invitation[]
+  auditLogs   AuditLog[]
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+  GUEST
+}
+
+model OrgMember {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(MEMBER)
+  joinedAt       DateTime     @default(now())
+
+  teamMemberships TeamMember[]
+
+  @@unique([organizationId, userId])
+}
+
+model Team {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  createdAt      DateTime     @default(now())
+
+  members TeamMember[]
+
+  @@unique([organizationId, name])
+}
+
+model TeamMember {
+  id          String    @id @default(uuid())
+  teamId      String
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  orgMemberId String
+  orgMember   OrgMember @relation(fields: [orgMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, orgMemberId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           OrgRole          @default(MEMBER)
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  invitedBy      User             @relation("InvitedBy", fields: [invitedById], references: [id])
+  tokenHash      String           @unique
+  expiresAt      DateTime
+  createdAt      DateTime         @default(now())
+
+  @@index([organizationId, email])
+}
+
+// ---------- Workspaces & Permissions ----------
+
+model Workspace {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  slug           String
+  createdAt      DateTime     @default(now())
+
+  permissionOverrides PermissionOverride[]
+
+  @@unique([organizationId, slug])
+}
+
+enum ResourceType {
+  WORKSPACE
+  DOCUMENT
+  PROJECT
+  CHANNEL
+  FOLDER
+}
+
+enum PermissionLevel {
+  VIEW
+  COMMENT
+  EDIT
+  MANAGE
+}
+
+// Sparse overrides layered on top of inherited org/workspace role.
+model PermissionOverride {
+  id           String          @id @default(uuid())
+  workspaceId  String
+  workspace    Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  resourceType ResourceType
+  resourceId   String
+  subjectType  String // "user" | "team"
+  subjectId    String
+  level        PermissionLevel
+  createdAt    DateTime        @default(now())
+
+  @@unique([resourceType, resourceId, subjectType, subjectId])
+}
+
+// ---------- Audit ----------
+
+model AuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actor          User?        @relation(fields: [actorId], references: [id])
+  action         String
+  targetType     String
+  targetId       String
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+}
