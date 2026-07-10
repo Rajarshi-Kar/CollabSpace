@@ -28,5 +28,26 @@ export async function authorizeRoom(room: string, userId: string): Promise<RoomA
     return membership ? { allowed: true, organizationId: workspace.organizationId } : { allowed: false };
   }
 
+  if (kind === 'channel') {
+    const channel = await prisma.channel.findUnique({
+      where: { id },
+      select: { isPrivate: true, isDirect: true, workspaceId: true, workspace: { select: { organizationId: true } } },
+    });
+    if (!channel) return { allowed: false };
+
+    const channelMembership = await prisma.channelMember.findUnique({
+      where: { channelId_userId: { channelId: id, userId } },
+    });
+    if (channelMembership) return { allowed: true, organizationId: channel.workspace.organizationId };
+    if (channel.isPrivate || channel.isDirect) return { allowed: false };
+
+    // Public channels: any workspace member can listen even before joining,
+    // matching the read model in channels.routes.ts#canViewChannel.
+    const orgMembership = await prisma.orgMember.findUnique({
+      where: { organizationId_userId: { organizationId: channel.workspace.organizationId, userId } },
+    });
+    return orgMembership ? { allowed: true, organizationId: channel.workspace.organizationId } : { allowed: false };
+  }
+
   return { allowed: false };
 }

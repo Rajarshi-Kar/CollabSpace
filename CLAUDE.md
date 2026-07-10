@@ -52,10 +52,10 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 5 — Messaging
 
-- [ ] Channels (public/private) + DMs; message persistence with cursor pagination
-- [ ] Real-time delivery, threads, reactions, pinned messages
-- [ ] Typing indicators + read receipts (Redis-backed, ephemeral)
-- [ ] Mentions in chat, file attachments in messages
+- [x] Channels (public/private) + DMs (modeled as 2-member private channels); message persistence with cursor pagination (`before` message-id cursor)
+- [x] Real-time delivery routed to `channel:<id>` rooms, not the whole org (private channels/DMs would otherwise leak); threads (parentId), reactions, pinned messages
+- [x] Typing indicators (pure ephemeral socket fan-out, not persisted); read receipts via per-member `lastReadAt` watermark
+- [x] Mentions parsed from message body (`@<userId>` → `mentionedUserIds`) — not yet wired to notification delivery (Phase 8); file attachments in messages deferred to Phase 6 (needs the File model first)
 
 ## Phase 6 — Files
 

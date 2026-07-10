@@ -32,6 +32,7 @@ export type DomainEventType =
   | 'project.created'
   | 'task.created'
   | 'task.updated'
+  | 'channel.created'
   | 'message.sent'
   | 'file.uploaded';
 

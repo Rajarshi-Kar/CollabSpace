@@ -28,6 +28,10 @@ model User {
   projectsCreated  Project[]
   tasksAssigned    Task[]            @relation("TaskAssignee")
   tasksCreated     Task[]            @relation("TaskCreator")
+  channelsCreated  Channel[]
+  channelMemberships ChannelMember[]
+  messages         Message[]
+  messageReactions MessageReaction[]
 }
 
 model RefreshToken {
@@ -135,6 +139,7 @@ model Workspace {
   permissionOverrides PermissionOverride[]
   documents           Document[]
   projects            Project[]
+  channels            Channel[]
 
   @@unique([organizationId, slug])
 }
@@ -382,6 +387,76 @@ model TaskDependency {
   dependsOn     Task   @relation("DependsOnTask", fields: [dependsOnId], references: [id], onDelete: Cascade)
 
   @@unique([dependentId, dependsOnId])
+}
+
+// ---------- Messaging ----------
+
+model Channel {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // Null name + isDirect marks a direct-message channel between its members;
+  // named channels are the public/private team channels.
+  name        String?
+  isPrivate   Boolean   @default(false)
+  isDirect    Boolean   @default(false)
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  members  ChannelMember[]
+  messages Message[]
+
+  @@unique([workspaceId, name])
+}
+
+model ChannelMember {
+  id            String    @id @default(uuid())
+  channelId     String
+  channel       Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt      DateTime  @default(now())
+  // Read-receipt watermark: messages with createdAt <= lastReadAt are
+  // considered read by this member, avoiding a per-message read row.
+  lastReadAt    DateTime?
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id         String    @id @default(uuid())
+  channelId  String
+  channel    Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id])
+  body       String
+  // Thread parent; replies share the parent's channel.
+  parentId   String?
+  parent     Message?  @relation("MessageThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    Message[] @relation("MessageThread")
+  mentionedUserIds String[]
+  pinnedAt   DateTime?
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  reactions MessageReaction[]
+
+  @@index([channelId, createdAt])
+  @@index([parentId])
+}
+
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId, emoji])
 }
 
 // ---------- Audit ----------

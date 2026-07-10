@@ -47,6 +47,19 @@ export function createSocketServer(httpServer: HttpServer) {
       ack?.(true);
     });
 
+    // Typing indicators are pure ephemeral fan-out — no persistence, no
+    // audit log, no domain event — so they skip emitDomainEvent entirely
+    // and go straight to the room.
+    socket.on('typing:start', (room: string) => {
+      if (!joinedRooms.has(room)) return;
+      socket.to(room).emit('typing:update', { room, userId, typing: true });
+    });
+
+    socket.on('typing:stop', (room: string) => {
+      if (!joinedRooms.has(room)) return;
+      socket.to(room).emit('typing:update', { room, userId, typing: false });
+    });
+
     socket.on('room:leave', async (room: string) => {
       socket.leave(room);
       joinedRooms.delete(room);
