@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
+import { emitDomainEvent } from '../../lib/events.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 
 export const orgsRouter = Router();
@@ -33,14 +34,13 @@ orgsRouter.post('/', async (req: AuthedRequest, res) => {
     include: { members: true },
   });
 
-  await prisma.auditLog.create({
-    data: {
-      organizationId: org.id,
-      actorId: req.userId,
-      action: 'organization.created',
-      targetType: 'organization',
-      targetId: org.id,
-    },
+  await emitDomainEvent({
+    type: 'organization.created',
+    organizationId: org.id,
+    actorId: req.userId as string,
+    targetType: 'organization',
+    targetId: org.id,
+    payload: { name: org.name, slug: org.slug },
   });
 
   res.status(201).json(org);
@@ -101,6 +101,60 @@ orgsRouter.post('/:orgId/invitations', async (req: AuthedRequest, res) => {
     },
   });
 
+  await emitDomainEvent({
+    type: 'invitation.created',
+    organizationId: req.params.orgId,
+    actorId: req.userId as string,
+    targetType: 'invitation',
+    targetId: invitation.id,
+    payload: { email: invitation.email, role: invitation.role },
+  });
+
   // TODO(Phase 8): enqueue invitation email job on the worker instead of inline send.
   res.status(201).json({ invitationId: invitation.id, token: rawToken });
+});
+
+const acceptInvitationSchema = z.object({ token: z.string().min(1) });
+
+orgsRouter.post('/invitations/accept', async (req: AuthedRequest, res) => {
+  const parsed = acceptInvitationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+
+  const { createHash } = await import('node:crypto');
+  const tokenHash = createHash('sha256').update(parsed.data.token).digest('hex');
+
+  const invitation = await prisma.invitation.findUnique({ where: { tokenHash } });
+  if (!invitation || invitation.status !== 'PENDING' || invitation.expiresAt < new Date()) {
+    res.status(400).json({ error: 'Invalid or expired invitation' });
+    return;
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (!user || user.email !== invitation.email) {
+    res.status(403).json({ error: 'Invitation was issued to a different email address' });
+    return;
+  }
+
+  const [membership] = await prisma.$transaction([
+    prisma.orgMember.upsert({
+      where: { organizationId_userId: { organizationId: invitation.organizationId, userId: user.id } },
+      create: { organizationId: invitation.organizationId, userId: user.id, role: invitation.role },
+      update: {},
+    }),
+    prisma.invitation.update({ where: { id: invitation.id }, data: { status: 'ACCEPTED' } }),
+  ]);
+
+  await emitDomainEvent({
+    type: 'invitation.accepted',
+    organizationId: invitation.organizationId,
+    actorId: user.id,
+    targetType: 'invitation',
+    targetId: invitation.id,
+    payload: { role: membership.role },
+  });
+
+  res.json(membership);
 });

@@ -24,7 +24,10 @@ export interface AuthTokens {
 // indexing, notifications, and audit logging all derive from these.
 export type DomainEventType =
   | 'organization.created'
+  | 'workspace.created'
+  | 'team.created'
   | 'invitation.created'
+  | 'invitation.accepted'
   | 'document.updated'
   | 'task.created'
   | 'task.updated'

@@ -5,6 +5,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { orgsRouter } from './modules/orgs/orgs.routes.js';
+import { workspacesRouter } from './modules/workspaces/workspaces.routes.js';
+import { teamsRouter } from './modules/teams/teams.routes.js';
 import { createSocketServer } from './realtime/socket.js';
 
 const app = express();
@@ -16,6 +18,8 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/auth', authRouter);
 app.use('/orgs', orgsRouter);
+app.use('/orgs/:orgId/workspaces', workspacesRouter);
+app.use('/orgs/:orgId/teams', teamsRouter);
 
 const httpServer = createServer(app);
 createSocketServer(httpServer);
