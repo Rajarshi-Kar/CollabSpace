@@ -77,10 +77,10 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 9 — Analytics & Polish
 
-- [ ] Workspace analytics: project progress, task completion, team/document activity, storage usage, engagement
-- [ ] Rate limiting, input validation hardening, security review (multi-tenant isolation tests)
-- [ ] Load testing (WebSocket fan-out, concurrent editing), graceful degradation
-- [ ] Docs, seed data, demo script, deployment config
+- [x] Workspace analytics (`GET /workspaces/:id/analytics`): per-project task completion/overdue, workspace-wide completion rate, storage usage, active-user count, document/channel counts — computed on read, no counter tables to drift
+- [x] Rate limiting (Redis-backed, shared across API instances — auth endpoints tighter than general API); helmet security headers; global error handler — **known gap**: Express 4 doesn't forward async route-handler rejections to it, so a thrown error in a route currently hangs the request rather than 500ing (stopgap `unhandledRejection` logger added; real fix is Express 5 or wrapping every handler)
+- [ ] Load testing (WebSocket fan-out, concurrent editing), graceful degradation — not done, needs live infra
+- [x] Seed script (`pnpm --filter @collabspace/api seed`) — demo org/workspace/project/tasks/document/channel; deployment config and demo script still open
 
 ## Key Engineering Decisions to Document as Built
 

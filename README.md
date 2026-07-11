@@ -16,6 +16,7 @@ pnpm install
 cp .env.example .env        # repeat inside apps/api if it needs its own .env
 docker compose up -d        # Postgres, Redis, Meilisearch, MinIO
 pnpm --filter @collabspace/api prisma:migrate
+pnpm --filter @collabspace/api seed   # optional demo org/workspace/project/data
 pnpm dev:api                # http://localhost:4000
 pnpm dev:worker
 pnpm dev:web                # http://localhost:5173
