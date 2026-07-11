@@ -39,7 +39,7 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 - [x] Persistence: Yjs updates snapshotted to Postgres; debounced snapshots + update log (`document-persistence.ts`)
 - [x] Version history (manual + auto snapshots, restore-as-diff, text preview)
 - [x] Nested pages tree (self-relation), document sharing via PermissionOverride, templates flag
-- [x] Comments (anchored via JSON anchor field, threaded, resolve) — @mentions parsing not yet wired to notifications (Phase 8)
+- [x] Comments (anchored via JSON anchor field, threaded, resolve) — notifies the document creator and parent-comment author on new comments
 - [x] Offline editing: IndexedDB persistence (y-indexeddb), merges automatically on reconnect via the CRDT
 - [ ] Web app shell (routing, auth pages, workspace nav) still not built — CollaborativeEditor.tsx exists but isn't mounted into a real page yet
 
@@ -55,7 +55,7 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 - [x] Channels (public/private) + DMs (modeled as 2-member private channels); message persistence with cursor pagination (`before` message-id cursor)
 - [x] Real-time delivery routed to `channel:<id>` rooms, not the whole org (private channels/DMs would otherwise leak); threads (parentId), reactions, pinned messages
 - [x] Typing indicators (pure ephemeral socket fan-out, not persisted); read receipts via per-member `lastReadAt` watermark
-- [x] Mentions parsed from message body (`@<userId>` → `mentionedUserIds`) — not yet wired to notification delivery (Phase 8); file attachments in messages deferred to Phase 6 (needs the File model first)
+- [x] Mentions parsed from message body (`@<userId>` → `mentionedUserIds`) and notify each mentioned user; file attachments in messages via `MessageAttachment` (added in Phase 6)
 
 ## Phase 6 — Files
 
@@ -71,9 +71,9 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 8 — Notifications & Activity
 
-- [ ] Notification service: in-app (real-time via sockets), email (digest + immediate) via worker
-- [ ] Preferences per user; mention alerts, task reminders (scheduled jobs), comment notifications
-- [ ] Activity feed per workspace/project
+- [x] Notification service: in-app (real-time via a per-user `user:<id>` socket room + Redis pub/sub bridge), email immediate-send wired (via existing `email` queue); digest batching not yet implemented (needs a scheduled job, not a per-notification one)
+- [x] Preferences per user (muted types, digest/immediate toggle); mention alerts (chat + doc comments), task assignment alerts, task due-date reminders (delayed BullMQ job, consumed in-process by the API since it needs live Postgres state — not the worker)
+- [x] Activity feed — org-scoped (not per-workspace/project yet; audit log has no workspaceId column, would need a join through targetId per targetType), reads directly off the existing `AuditLog` table rather than a separate model
 
 ## Phase 9 — Analytics & Polish
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
 import { enqueueIndex } from '../../lib/search-index.js';
+import { emailQueue } from '../../lib/queues.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 
 export const orgsRouter = Router();
@@ -125,7 +126,12 @@ orgsRouter.post('/:orgId/invitations', async (req: AuthedRequest, res) => {
     payload: { email: invitation.email, role: invitation.role },
   });
 
-  // TODO(Phase 8): enqueue invitation email job on the worker instead of inline send.
+  await emailQueue.add('send', {
+    to: invitation.email,
+    template: 'invitation',
+    data: { organizationId: req.params.orgId, token: rawToken, role: invitation.role },
+  });
+
   res.status(201).json({ invitationId: invitation.id, token: rawToken });
 });
 

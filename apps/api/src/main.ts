@@ -5,6 +5,8 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { orgsRouter } from './modules/orgs/orgs.routes.js';
+import { activityRouter } from './modules/orgs/activity.routes.js';
+import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { workspacesRouter } from './modules/workspaces/workspaces.routes.js';
 import { teamsRouter } from './modules/teams/teams.routes.js';
 import { documentsRouter } from './modules/documents/documents.routes.js';
@@ -19,6 +21,7 @@ import { filesRouter } from './modules/files/files.routes.js';
 import { searchRouter } from './modules/search/search.routes.js';
 import { createSocketServer } from './realtime/socket.js';
 import { attachYjsServer } from './realtime/yjsServer.js';
+import { attachReminderWorker } from './jobs/reminderWorker.js';
 
 const app = express();
 app.use(cors({ origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173', credentials: true }));
@@ -31,6 +34,8 @@ app.use('/auth', authRouter);
 app.use('/orgs', orgsRouter);
 app.use('/orgs/:orgId/workspaces', workspacesRouter);
 app.use('/orgs/:orgId/teams', teamsRouter);
+app.use('/orgs/:orgId/activity', activityRouter);
+app.use('/notifications', notificationsRouter);
 app.use('/workspaces/:workspaceId/documents', documentsRouter);
 app.use('/workspaces/:workspaceId/documents/:documentId/versions', versionsRouter);
 app.use('/workspaces/:workspaceId/documents/:documentId/comments', commentsRouter);
@@ -45,6 +50,7 @@ app.use('/workspaces/:workspaceId/search', searchRouter);
 const httpServer = createServer(app);
 createSocketServer(httpServer);
 attachYjsServer(httpServer);
+attachReminderWorker();
 
 const port = Number(process.env.API_PORT ?? 4000);
 httpServer.listen(port, () => {

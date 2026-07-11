@@ -6,6 +6,7 @@ import { verifyAccessToken } from '../lib/jwt.js';
 import { authorizeRoom } from './rooms.js';
 import { listPresentUserIds, markAbsent, markPresent } from './presence.js';
 import { attachDomainEventBridge } from './eventBridge.js';
+import { attachNotificationBridge } from './notificationBridge.js';
 
 export function createSocketServer(httpServer: HttpServer) {
   const io = new Server(httpServer, {
@@ -16,6 +17,7 @@ export function createSocketServer(httpServer: HttpServer) {
   const subClient = pubClient.duplicate();
   io.adapter(createAdapter(pubClient, subClient));
   attachDomainEventBridge(io);
+  attachNotificationBridge(io);
 
   io.use((socket, next) => {
     const token = socket.handshake.auth?.token as string | undefined;
@@ -32,6 +34,10 @@ export function createSocketServer(httpServer: HttpServer) {
   io.on('connection', (socket) => {
     const userId = socket.data.userId as string;
     const joinedRooms = new Set<string>();
+
+    // Every connection implicitly gets its own private notification room —
+    // no authorizeRoom check needed since it's always the caller's own id.
+    socket.join(`user:${userId}`);
 
     socket.on('room:join', async (room: string, ack?: (ok: boolean) => void) => {
       const auth = await authorizeRoom(room, userId);

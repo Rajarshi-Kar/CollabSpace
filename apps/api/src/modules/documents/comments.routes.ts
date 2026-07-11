@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
+import { notify } from '../../lib/notify.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { levelAtLeast, resolvePermission } from '../permissions/permissions.service.js';
 
@@ -61,6 +62,32 @@ commentsRouter.post('/', async (req: AuthedRequest, res) => {
     targetId: comment.id,
     payload: { action: 'comment-created', documentId: req.params.documentId },
   });
+
+  const notifyTargets = new Set<string>();
+  const document = await prisma.document.findUnique({
+    where: { id: req.params.documentId },
+    select: { createdById: true, title: true },
+  });
+  if (document && document.createdById !== req.userId) notifyTargets.add(document.createdById);
+
+  if (parsed.data.parentId) {
+    const parentComment = await prisma.comment.findUnique({
+      where: { id: parsed.data.parentId },
+      select: { authorId: true },
+    });
+    if (parentComment && parentComment.authorId !== req.userId) notifyTargets.add(parentComment.authorId);
+  }
+
+  await Promise.all(
+    Array.from(notifyTargets).map((userId) =>
+      notify({
+        userId,
+        organizationId,
+        type: 'COMMENT',
+        payload: { documentId: req.params.documentId, commentId: comment.id, title: document?.title },
+      }),
+    ),
+  );
 
   res.status(201).json(comment);
 });

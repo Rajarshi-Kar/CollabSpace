@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
 import { enqueueIndex } from '../../lib/search-index.js';
+import { notify } from '../../lib/notify.js';
+import { scheduleTaskReminder } from '../../lib/reminders.js';
 import { rankBetween } from '../../lib/rank.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { requireProjectLevel } from '../projects/projects.routes.js';
@@ -91,6 +93,16 @@ tasksRouter.post('/', async (req: AuthedRequest, res) => {
     payload: { title: task.title, status: task.status, projectId: task.projectId },
   });
   await indexTask(task, organizationId, req.params.workspaceId);
+  await scheduleTaskReminder(task.id, task.dueDate);
+
+  if (task.assigneeId && task.assigneeId !== req.userId) {
+    await notify({
+      userId: task.assigneeId,
+      organizationId,
+      type: 'TASK_ASSIGNED',
+      payload: { taskId: task.id, projectId: task.projectId, title: task.title },
+    });
+  }
 
   res.status(201).json(task);
 });
@@ -169,6 +181,11 @@ tasksRouter.patch('/:taskId', async (req: AuthedRequest, res) => {
     return;
   }
 
+  const previous = await prisma.task.findUnique({
+    where: { id: req.params.taskId },
+    select: { assigneeId: true },
+  });
+
   const task = await prisma.task.update({
     where: { id: req.params.taskId },
     data: {
@@ -191,6 +208,24 @@ tasksRouter.patch('/:taskId', async (req: AuthedRequest, res) => {
     payload: { projectId: task.projectId },
   });
   await indexTask(task, organizationId, req.params.workspaceId);
+
+  if (parsed.data.dueDate !== undefined) {
+    await scheduleTaskReminder(task.id, task.dueDate);
+  }
+
+  if (
+    parsed.data.assigneeId !== undefined &&
+    task.assigneeId &&
+    task.assigneeId !== previous?.assigneeId &&
+    task.assigneeId !== req.userId
+  ) {
+    await notify({
+      userId: task.assigneeId,
+      organizationId,
+      type: 'TASK_ASSIGNED',
+      payload: { taskId: task.id, projectId: task.projectId, title: task.title },
+    });
+  }
 
   res.json(task);
 });

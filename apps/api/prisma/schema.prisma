@@ -36,6 +36,8 @@ model User {
   filesCreated     File[]
   fileVersionsUploaded FileVersion[]
   fileDownloads    FileDownload[]
+  notifications    Notification[]
+  notificationPreference NotificationPreference?
 }
 
 model RefreshToken {
@@ -62,6 +64,7 @@ model Organization {
   workspaces  Workspace[]
   invitations Invitation[]
   auditLogs   AuditLog[]
+  notifications Notification[]
 }
 
 enum OrgRole {
@@ -550,6 +553,45 @@ model MessageAttachment {
   file      File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, fileId])
+}
+
+// ---------- Notifications ----------
+
+enum NotificationType {
+  MENTION
+  COMMENT
+  TASK_ASSIGNED
+  TASK_DUE_REMINDER
+  INVITATION
+}
+
+model Notification {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           NotificationType
+  // Freeform payload for the notification body/link (e.g. { documentId,
+  // title, commentId }) — shape varies by type, rendered client-side.
+  payload        Json
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model NotificationPreference {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Per-type opt-outs; absence of a key means "enabled" so new
+  // NotificationTypes default to on without a migration.
+  mutedTypes NotificationType[]
+  emailDigest Boolean @default(true)
+  emailImmediate Boolean @default(false)
+  updatedAt DateTime @updatedAt
 }
 
 // ---------- Audit ----------

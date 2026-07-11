@@ -5,3 +5,4 @@ const connection = { url: process.env.REDIS_URL ?? 'redis://localhost:6379' } as
 export const emailQueue = new Queue('email', { connection });
 export const indexQueue = new Queue('index', { connection });
 export const mediaQueue = new Queue('media', { connection });
+export const reminderQueue = new Queue('reminder', { connection });

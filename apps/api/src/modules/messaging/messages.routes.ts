@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
 import { enqueueIndex } from '../../lib/search-index.js';
+import { notify } from '../../lib/notify.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { canViewChannel, isChannelMember } from './channels.routes.js';
 
@@ -84,6 +85,19 @@ messagesRouter.post('/', async (req: AuthedRequest, res) => {
     resourceId: message.channelId,
     fields: { body: message.body, channelId: message.channelId, createdAt: message.createdAt },
   });
+
+  await Promise.all(
+    message.mentionedUserIds
+      .filter((id) => id !== req.userId)
+      .map((mentionedUserId) =>
+        notify({
+          userId: mentionedUserId,
+          organizationId: scope.organizationId,
+          type: 'MENTION',
+          payload: { channelId: message.channelId, messageId: message.id, authorId: message.authorId },
+        }),
+      ),
+  );
 
   res.status(201).json(message);
 });
