@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
+import { enqueueIndex } from '../../lib/search-index.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 
 export const orgsRouter = Router();
@@ -42,6 +43,20 @@ orgsRouter.post('/', async (req: AuthedRequest, res) => {
     targetId: org.id,
     payload: { name: org.name, slug: org.slug },
   });
+
+  const owner = await prisma.user.findUnique({ where: { id: req.userId } });
+  if (owner) {
+    await enqueueIndex({
+      entityType: 'person',
+      action: 'upsert',
+      id: owner.id,
+      organizationId: org.id,
+      workspaceId: null,
+      resourceType: 'ORGANIZATION',
+      resourceId: org.id,
+      fields: { displayName: owner.displayName, email: owner.email },
+    });
+  }
 
   res.status(201).json(org);
 });
@@ -154,6 +169,17 @@ orgsRouter.post('/invitations/accept', async (req: AuthedRequest, res) => {
     targetType: 'invitation',
     targetId: invitation.id,
     payload: { role: membership.role },
+  });
+
+  await enqueueIndex({
+    entityType: 'person',
+    action: 'upsert',
+    id: user.id,
+    organizationId: invitation.organizationId,
+    workspaceId: null,
+    resourceType: 'ORGANIZATION',
+    resourceId: invitation.organizationId,
+    fields: { displayName: user.displayName, email: user.email },
   });
 
   res.json(membership);

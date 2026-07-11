@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
+import { enqueueIndex } from '../../lib/search-index.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { BUCKET, buildStorageKey, deleteObject, presignDownload, presignUpload, s3 } from '../../lib/storage.js';
 import { mediaQueue } from '../../lib/queues.js';
@@ -144,6 +145,17 @@ filesRouter.post('/:fileId/complete', async (req: AuthedRequest, res) => {
     });
   }
 
+  await enqueueIndex({
+    entityType: 'file',
+    action: 'upsert',
+    id: file.id,
+    organizationId,
+    workspaceId: req.params.workspaceId,
+    resourceType: 'WORKSPACE',
+    resourceId: req.params.workspaceId,
+    fields: { name: file.name, mimeType: file.mimeType },
+  });
+
   res.json(updatedFile);
 });
 
@@ -210,13 +222,24 @@ filesRouter.get('/:fileId/versions', async (req: AuthedRequest, res) => {
 });
 
 filesRouter.delete('/:fileId', async (req: AuthedRequest, res) => {
-  if (!(await requireWorkspaceMember(req.params.workspaceId, req.userId as string))) {
+  const organizationId = await requireWorkspaceMember(req.params.workspaceId, req.userId as string);
+  if (!organizationId) {
     res.status(403).json({ error: 'Insufficient permissions' });
     return;
   }
   const versions = await prisma.fileVersion.findMany({ where: { fileId: req.params.fileId } });
   await prisma.file.delete({ where: { id: req.params.fileId } });
   await Promise.all(versions.map((v) => deleteObject(v.storageKey)));
+  await enqueueIndex({
+    entityType: 'file',
+    action: 'delete',
+    id: req.params.fileId,
+    organizationId,
+    workspaceId: req.params.workspaceId,
+    resourceType: 'WORKSPACE',
+    resourceId: req.params.workspaceId,
+    fields: {},
+  });
   res.status(204).end();
 });
 

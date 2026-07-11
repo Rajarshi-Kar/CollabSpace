@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
+import { enqueueIndex } from '../../lib/search-index.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { levelAtLeast, resolvePermission } from '../permissions/permissions.service.js';
 
@@ -81,6 +82,17 @@ documentsRouter.post('/', async (req: AuthedRequest, res) => {
     targetType: 'document',
     targetId: document.id,
     payload: { action: 'created', title: document.title },
+  });
+
+  await enqueueIndex({
+    entityType: 'document',
+    action: 'upsert',
+    id: document.id,
+    organizationId,
+    workspaceId: req.params.workspaceId,
+    resourceType: 'DOCUMENT',
+    resourceId: document.id,
+    fields: { title: document.title, updatedAt: document.updatedAt },
   });
 
   res.status(201).json(document);
@@ -173,6 +185,30 @@ documentsRouter.patch('/:documentId', async (req: AuthedRequest, res) => {
     targetId: document.id,
     payload: { action: 'metadata-updated' },
   });
+
+  if (document.archivedAt) {
+    await enqueueIndex({
+      entityType: 'document',
+      action: 'delete',
+      id: document.id,
+      organizationId: organizationId as string,
+      workspaceId: req.params.workspaceId,
+      resourceType: 'DOCUMENT',
+      resourceId: document.id,
+      fields: {},
+    });
+  } else {
+    await enqueueIndex({
+      entityType: 'document',
+      action: 'upsert',
+      id: document.id,
+      organizationId: organizationId as string,
+      workspaceId: req.params.workspaceId,
+      resourceType: 'DOCUMENT',
+      resourceId: document.id,
+      fields: { title: document.title, updatedAt: document.updatedAt },
+    });
+  }
 
   res.json(document);
 });

@@ -2,12 +2,27 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
+import { enqueueIndex } from '../../lib/search-index.js';
 import { rankBetween } from '../../lib/rank.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { requireProjectLevel } from '../projects/projects.routes.js';
+import type { Task } from '@prisma/client';
 
 export const tasksRouter = Router({ mergeParams: true });
 tasksRouter.use(requireAuth);
+
+function indexTask(task: Task, organizationId: string, workspaceId: string) {
+  return enqueueIndex({
+    entityType: 'task',
+    action: 'upsert',
+    id: task.id,
+    organizationId,
+    workspaceId,
+    resourceType: 'PROJECT',
+    resourceId: task.projectId,
+    fields: { title: task.title, description: task.description, status: task.status, priority: task.priority },
+  });
+}
 
 const createTaskSchema = z.object({
   title: z.string().min(1).max(300),
@@ -75,6 +90,7 @@ tasksRouter.post('/', async (req: AuthedRequest, res) => {
     targetId: task.id,
     payload: { title: task.title, status: task.status, projectId: task.projectId },
   });
+  await indexTask(task, organizationId, req.params.workspaceId);
 
   res.status(201).json(task);
 });
@@ -174,6 +190,7 @@ tasksRouter.patch('/:taskId', async (req: AuthedRequest, res) => {
     targetId: task.id,
     payload: { projectId: task.projectId },
   });
+  await indexTask(task, organizationId, req.params.workspaceId);
 
   res.json(task);
 });
@@ -225,6 +242,7 @@ tasksRouter.post('/:taskId/move', async (req: AuthedRequest, res) => {
     targetId: task.id,
     payload: { projectId: task.projectId, action: 'moved', status: task.status },
   });
+  await indexTask(task, organizationId, req.params.workspaceId);
 
   res.json(task);
 });

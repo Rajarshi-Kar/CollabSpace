@@ -65,9 +65,9 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 
 ## Phase 7 — Search
 
-- [ ] Meilisearch indexes: documents, tasks, messages, files, people
-- [ ] Async indexing pipeline via worker (on domain events); permission-filtered results
-- [ ] Global search UI (cmd-K), filters, tag search, recent searches
+- [x] Meilisearch indexes: documents (title + Yjs-extracted plain text), tasks, messages, files, people (org-scoped, not workspace-scoped)
+- [x] Async indexing pipeline: API denormalizes searchable fields and enqueues onto the existing BullMQ `index` queue at write time (create/update/delete) — worker never re-queries Postgres, just upserts/deletes in Meilisearch; results are permission-filtered post-query (over-fetch + per-hit `resolvePermission`/channel-membership check) since Meilisearch has no per-user ACL concept
+- [ ] Global search UI (cmd-K), filters, tag search, recent searches — backend endpoints exist (`GET /workspaces/:id/search`, `/search/people`), no web UI yet
 
 ## Phase 8 — Notifications & Activity
 

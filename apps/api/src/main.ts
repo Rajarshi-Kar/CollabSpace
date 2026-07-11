@@ -16,6 +16,7 @@ import { channelsRouter } from './modules/messaging/channels.routes.js';
 import { messagesRouter } from './modules/messaging/messages.routes.js';
 import { foldersRouter } from './modules/files/folders.routes.js';
 import { filesRouter } from './modules/files/files.routes.js';
+import { searchRouter } from './modules/search/search.routes.js';
 import { createSocketServer } from './realtime/socket.js';
 import { attachYjsServer } from './realtime/yjsServer.js';
 
@@ -39,6 +40,7 @@ app.use('/workspaces/:workspaceId/channels', channelsRouter);
 app.use('/workspaces/:workspaceId/channels/:channelId/messages', messagesRouter);
 app.use('/workspaces/:workspaceId/folders', foldersRouter);
 app.use('/workspaces/:workspaceId/files', filesRouter);
+app.use('/workspaces/:workspaceId/search', searchRouter);
 
 const httpServer = createServer(app);
 createSocketServer(httpServer);

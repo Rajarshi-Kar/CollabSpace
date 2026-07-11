@@ -9,6 +9,7 @@ import { verifyAccessToken } from '../lib/jwt.js';
 import { resolvePermission, levelAtLeast } from '../modules/permissions/permissions.service.js';
 import { prisma } from '../lib/prisma.js';
 import { appendUpdate, compactSnapshot, loadDocState } from '../modules/documents/document-persistence.js';
+import { enqueueIndex } from '../lib/search-index.js';
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
@@ -53,7 +54,31 @@ function scheduleSnapshot(documentId: string, room: DocRoom) {
   room.snapshotTimer = setTimeout(() => {
     const merged = Y.encodeStateAsUpdate(room.ydoc);
     void compactSnapshot(documentId, merged);
+    void indexDocumentContent(documentId, room.ydoc);
   }, SNAPSHOT_DEBOUNCE_MS);
+}
+
+// Re-indexes the document's plain-text content on the same debounce as the
+// snapshot compaction, so search stays close to current without indexing on
+// every keystroke.
+async function indexDocumentContent(documentId: string, ydoc: Y.Doc) {
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { title: true, workspaceId: true, workspace: { select: { organizationId: true } } },
+  });
+  if (!document) return;
+
+  const content = ydoc.getXmlFragment('default').toString();
+  await enqueueIndex({
+    entityType: 'document',
+    action: 'upsert',
+    id: documentId,
+    organizationId: document.workspace.organizationId,
+    workspaceId: document.workspaceId,
+    resourceType: 'DOCUMENT',
+    resourceId: documentId,
+    fields: { title: document.title, content },
+  });
 }
 
 function broadcastUpdate(room: DocRoom, update: Uint8Array) {

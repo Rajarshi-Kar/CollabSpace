@@ -2,18 +2,19 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { emitDomainEvent } from '../../lib/events.js';
+import { enqueueIndex } from '../../lib/search-index.js';
 import { requireAuth, type AuthedRequest } from '../../middleware/auth.js';
 import { canViewChannel, isChannelMember } from './channels.routes.js';
 
 export const messagesRouter = Router({ mergeParams: true });
 messagesRouter.use(requireAuth);
 
-async function getChannelOrg(channelId: string): Promise<string | null> {
+async function getChannelScope(channelId: string): Promise<{ organizationId: string; workspaceId: string } | null> {
   const channel = await prisma.channel.findUnique({
     where: { id: channelId },
-    select: { workspace: { select: { organizationId: true } } },
+    select: { workspaceId: true, workspace: { select: { organizationId: true } } },
   });
-  return channel?.workspace.organizationId ?? null;
+  return channel ? { organizationId: channel.workspace.organizationId, workspaceId: channel.workspaceId } : null;
 }
 
 function extractMentions(body: string): string[] {
@@ -48,8 +49,8 @@ messagesRouter.post('/', async (req: AuthedRequest, res) => {
     });
   }
 
-  const organizationId = await getChannelOrg(req.params.channelId);
-  if (!organizationId) {
+  const scope = await getChannelScope(req.params.channelId);
+  if (!scope) {
     res.status(404).json({ error: 'Channel not found' });
     return;
   }
@@ -66,11 +67,22 @@ messagesRouter.post('/', async (req: AuthedRequest, res) => {
 
   await emitDomainEvent({
     type: 'message.sent',
-    organizationId,
+    organizationId: scope.organizationId,
     actorId: req.userId as string,
     targetType: 'message',
     targetId: message.id,
     payload: { channelId: message.channelId, parentId: message.parentId },
+  });
+
+  await enqueueIndex({
+    entityType: 'message',
+    action: 'upsert',
+    id: message.id,
+    organizationId: scope.organizationId,
+    workspaceId: scope.workspaceId,
+    resourceType: 'CHANNEL',
+    resourceId: message.channelId,
+    fields: { body: message.body, channelId: message.channelId, createdAt: message.createdAt },
   });
 
   res.status(201).json(message);
@@ -142,6 +154,21 @@ messagesRouter.delete('/:messageId', async (req: AuthedRequest, res) => {
     return;
   }
   await prisma.message.update({ where: { id: message.id }, data: { deletedAt: new Date(), body: '' } });
+
+  const scope = await getChannelScope(req.params.channelId);
+  if (scope) {
+    await enqueueIndex({
+      entityType: 'message',
+      action: 'delete',
+      id: message.id,
+      organizationId: scope.organizationId,
+      workspaceId: scope.workspaceId,
+      resourceType: 'CHANNEL',
+      resourceId: message.channelId,
+      fields: {},
+    });
+  }
+
   res.status(204).end();
 });
 

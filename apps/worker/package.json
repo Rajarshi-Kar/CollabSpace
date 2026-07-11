@@ -14,7 +14,8 @@
     "@collabspace/shared": "workspace:*",
     "bullmq": "^5.28.1",
     "dotenv": "^16.4.5",
-    "ioredis": "^5.4.1"
+    "ioredis": "^5.4.1",
+    "meilisearch": "^0.47.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
