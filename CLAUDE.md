@@ -41,7 +41,7 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 - [x] Nested pages tree (self-relation), document sharing via PermissionOverride, templates flag
 - [x] Comments (anchored via JSON anchor field, threaded, resolve) — notifies the document creator and parent-comment author on new comments
 - [x] Offline editing: IndexedDB persistence (y-indexeddb), merges automatically on reconnect via the CRDT
-- [ ] Web app shell (routing, auth pages, workspace nav) still not built — CollaborativeEditor.tsx exists but isn't mounted into a real page yet
+- [x] Web app shell built (see below) — CollaborativeEditor.tsx is now mounted at `/o/:orgId/w/:workspaceId/documents/:documentId`
 
 ## Phase 4 — Project Management
 
@@ -81,6 +81,13 @@ Unified team collaboration platform (docs + tasks + chat + files + search) demon
 - [x] Rate limiting (Redis-backed, shared across API instances — auth endpoints tighter than general API); helmet security headers; global error handler — **known gap**: Express 4 doesn't forward async route-handler rejections to it, so a thrown error in a route currently hangs the request rather than 500ing (stopgap `unhandledRejection` logger added; real fix is Express 5 or wrapping every handler)
 - [ ] Load testing (WebSocket fan-out, concurrent editing), graceful degradation — not done, needs live infra
 - [x] Seed script (`pnpm --filter @collabspace/api seed`) — demo org/workspace/project/tasks/document/channel; deployment config and demo script still open
+
+## Web App Shell
+
+- [x] Routing: `/login`, `/signup` → `/orgs` → `/o/:orgId` (workspace picker) → `/o/:orgId/w/:workspaceId` (sidebar shell: overview/documents/projects/channels/files/search); `ProtectedRoute` redirects unauthenticated users to `/login`
+- [x] Auth: `lib/api.ts` fetch wrapper attaches the bearer token and retries once through a deduplicated refresh on 401; session persisted to localStorage via zustand
+- [x] Every backend domain has a real page now — documents (CollaborativeEditor finally mounted), projects (status-dropdown board, not drag-and-drop yet), channels (realtime via the domain-event socket bridge), files (real presigned-upload flow), search
+- [ ] Kanban drag-and-drop (backend `/tasks/:id/move` exists, UI uses a `<select>` instead); no cmd-K search palette; no document version-history or comments UI yet
 
 ## Key Engineering Decisions to Document as Built
 
