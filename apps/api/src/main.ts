@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import './lib/bigint-json.js';
 import { createServer } from 'node:http';
 import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
